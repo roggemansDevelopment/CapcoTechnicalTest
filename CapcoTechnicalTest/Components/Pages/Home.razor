@@ -1,0 +1,400 @@
+﻿@page "/"
+@using CapcoTechnicalTest.Application.Carts
+@using CapcoTechnicalTest.Domain.Customers
+@using CapcoTechnicalTest.Domain.Pricing
+@using CapcoTechnicalTest.Domain.Shared
+@using CapcoTechnicalTest.Domain.Shopping
+@inject ICartTotalCalculator CartTotalCalculator
+@inject IPricePolicy PricePolicy
+
+<div class="calc-page">
+    <header class="hero">
+        <span class="pill">Capco pricing</span>
+        <h1>Cart total calculator</h1>
+        <p>Enter customer details, set quantities, and calculate totals instantly.</p>
+    </header>
+
+    <div class="panel-grid">
+        <section class="panel">
+            <h2>Customer</h2>
+
+            <div class="field">
+                <label>Customer type</label>
+                <InputSelect class="input" @bind-Value="SelectedCustomerType">
+                    <option value="@CustomerType.Individual">Individual</option>
+                    <option value="@CustomerType.Business">Business</option>
+                </InputSelect>
+            </div>
+
+            <div class="field">
+                <label>Customer id</label>
+                <InputText class="input" @bind-Value="CustomerIdValue" />
+            </div>
+
+            @if (SelectedCustomerType == CustomerType.Individual)
+            {
+                <div class="field">
+                    <label>First name</label>
+                    <InputText class="input" @bind-Value="FirstName" />
+                </div>
+                <div class="field">
+                    <label>Last name</label>
+                    <InputText class="input" @bind-Value="LastName" />
+                </div>
+            }
+            else
+            {
+                <div class="field">
+                    <label>Company name</label>
+                    <InputText class="input" @bind-Value="CompanyName" />
+                </div>
+                <div class="field">
+                    <label>Registration number</label>
+                    <InputText class="input" @bind-Value="RegistrationNumber" />
+                </div>
+                <div class="field">
+                    <label>VAT number (optional)</label>
+                    <InputText class="input" @bind-Value="VatNumberValue" />
+                </div>
+                <div class="field">
+                    <label>Annual revenue (EUR)</label>
+                    <InputNumber class="input" @bind-Value="AnnualRevenue" min="0" step="0.01" />
+                </div>
+            }
+        </section>
+
+        <section class="panel">
+            <h2>Cart</h2>
+
+            <div class="field">
+                <label>High-end phone quantity</label>
+                <InputNumber class="input" @bind-Value="HighEndPhoneQty" min="0" step="1" />
+            </div>
+            <div class="field">
+                <label>Mid-range phone quantity</label>
+                <InputNumber class="input" @bind-Value="MidRangePhoneQty" min="0" step="1" />
+            </div>
+            <div class="field">
+                <label>Laptop quantity</label>
+                <InputNumber class="input" @bind-Value="LaptopQty" min="0" step="1" />
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(ErrorMessage))
+            {
+                <div class="error">@ErrorMessage</div>
+            }
+
+            @if (Total is not null)
+            {
+                <div class="total">
+                    <span>Total</span>
+                    <strong>@Total</strong>
+                </div>
+            }
+        </section>
+
+        <section class="panel summary">
+            <h2>Pricing snapshot</h2>
+
+            @if (Lines is null)
+            {
+                <p class="muted">Run the calculator to see unit prices and line totals.</p>
+            }
+            else
+            {
+                <table class="pricing-table">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th class="num">Qty</th>
+                            <th class="num">Unit price</th>
+                            <th class="num">Line total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var line in Lines)
+                        {
+                            <tr>
+                                <td>@line.Label</td>
+                                <td class="num">@line.Quantity</td>
+                                <td class="num">@line.UnitPrice</td>
+                                <td class="num">@line.LineTotal</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </section>
+    </div>
+
+    <section class="panel wide">
+        <h2>Price tiers</h2>
+        <p class="muted">Business pricing switches above 10,000,000 EUR annual revenue.</p>
+        <table class="pricing-table">
+            <thead>
+                <tr>
+                    <th>Product</th>
+                    <th class="num">Individual</th>
+                    <th class="num">Business &lt; 10M</th>
+                    <th class="num">Business &gt; 10M</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in PricingMatrix)
+                {
+                    <tr>
+                        <td>@row.ProductLabel</td>
+                        <td class="num">@row.IndividualPrice</td>
+                        <td class="num">@row.SmallBusinessPrice</td>
+                        <td class="num">@row.LargeBusinessPrice</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </section>
+</div>
+
+@code {
+    private bool _isInitialized;
+    private CustomerType _selectedCustomerType = CustomerType.Individual;
+    private string _customerIdValue = "C-001";
+    private string _firstName = "Jane";
+    private string _lastName = "Doe";
+    private string _companyName = "Acme Corp";
+    private string _registrationNumber = "REG-123";
+    private string _vatNumberValue = string.Empty;
+    private decimal _annualRevenue = 9_000_000m;
+    private int _highEndPhoneQty = 1;
+    private int _midRangePhoneQty = 1;
+    private int _laptopQty = 1;
+
+    private CustomerType SelectedCustomerType
+    {
+        get => _selectedCustomerType;
+        set => SetField(ref _selectedCustomerType, value);
+    }
+
+    private string CustomerIdValue
+    {
+        get => _customerIdValue;
+        set => SetField(ref _customerIdValue, value);
+    }
+
+    private string FirstName
+    {
+        get => _firstName;
+        set => SetField(ref _firstName, value);
+    }
+
+    private string LastName
+    {
+        get => _lastName;
+        set => SetField(ref _lastName, value);
+    }
+
+    private string CompanyName
+    {
+        get => _companyName;
+        set => SetField(ref _companyName, value);
+    }
+
+    private string RegistrationNumber
+    {
+        get => _registrationNumber;
+        set => SetField(ref _registrationNumber, value);
+    }
+
+    private string VatNumberValue
+    {
+        get => _vatNumberValue;
+        set => SetField(ref _vatNumberValue, value);
+    }
+
+    private decimal AnnualRevenue
+    {
+        get => _annualRevenue;
+        set => SetField(ref _annualRevenue, value);
+    }
+
+    private int HighEndPhoneQty
+    {
+        get => _highEndPhoneQty;
+        set => SetField(ref _highEndPhoneQty, value);
+    }
+
+    private int MidRangePhoneQty
+    {
+        get => _midRangePhoneQty;
+        set => SetField(ref _midRangePhoneQty, value);
+    }
+
+    private int LaptopQty
+    {
+        get => _laptopQty;
+        set => SetField(ref _laptopQty, value);
+    }
+    private Money? Total { get; set; }
+    private IReadOnlyList<PricingLine>? Lines { get; set; }
+    private IReadOnlyList<PricingMatrixRow> PricingMatrix { get; set; } = Array.Empty<PricingMatrixRow>();
+    private string? ErrorMessage { get; set; }
+
+    protected override void OnInitialized()
+    {
+        PricingMatrix = BuildPricingMatrix();
+        _isInitialized = true;
+        Calculate();
+    }
+
+    private void Calculate()
+    {
+        ErrorMessage = null;
+        Total = null;
+        Lines = null;
+
+        try
+        {
+            var customer = BuildCustomer();
+            var cartItems = BuildLineItems();
+            var cart = cartItems.Count == 0 ? ShoppingCart.Empty : new ShoppingCart(cartItems);
+
+            Total = CartTotalCalculator.CalculateTotal(customer, cart);
+            Lines = BuildPricingLines(customer);
+        }
+        catch (Exception ex) when (ex is ArgumentException or ArgumentNullException or ArgumentOutOfRangeException or InvalidOperationException or NotSupportedException)
+        {
+            ErrorMessage = ex.Message;
+        }
+    }
+
+    private Customer BuildCustomer()
+    {
+        var customerId = CustomerId.Create(CustomerIdValue);
+
+        if (SelectedCustomerType == CustomerType.Individual)
+        {
+            return new IndividualCustomer(customerId, new PersonName(FirstName, LastName));
+        }
+
+        var registration = CompanyRegistrationNumber.Create(RegistrationNumber);
+        var revenue = Money.FromEuros(AnnualRevenue);
+        var vatNumber = VatNumber.FromNullable(VatNumberValue);
+
+        return new BusinessCustomer(customerId, CompanyName, registration, revenue, vatNumber);
+    }
+
+    private List<CartLineItem> BuildLineItems()
+    {
+        var items = new List<CartLineItem>();
+        AddIfPositive(items, ProductType.HighEndPhone, HighEndPhoneQty);
+        AddIfPositive(items, ProductType.MidRangePhone, MidRangePhoneQty);
+        AddIfPositive(items, ProductType.Laptop, LaptopQty);
+        return items;
+    }
+
+    private IReadOnlyList<PricingLine> BuildPricingLines(Customer customer)
+    {
+        return new[]
+        {
+            BuildPricingLine(customer, ProductType.HighEndPhone, HighEndPhoneQty),
+            BuildPricingLine(customer, ProductType.MidRangePhone, MidRangePhoneQty),
+            BuildPricingLine(customer, ProductType.Laptop, LaptopQty),
+        };
+    }
+
+    private PricingLine BuildPricingLine(Customer customer, ProductType productType, int quantity)
+    {
+        var unitPrice = PricePolicy.GetUnitPrice(customer, productType);
+        var lineTotal = unitPrice * quantity;
+        return new PricingLine(GetLabel(productType), quantity, unitPrice, lineTotal);
+    }
+
+    private static void AddIfPositive(ICollection<CartLineItem> items, ProductType productType, int quantity)
+    {
+        if (quantity < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(quantity), $"{GetLabel(productType)} quantity cannot be negative.");
+        }
+
+        if (quantity == 0)
+        {
+            return;
+        }
+
+        items.Add(new CartLineItem(productType, quantity));
+    }
+
+    private static string GetLabel(ProductType productType) => productType switch
+    {
+        ProductType.HighEndPhone => "High-end phone",
+        ProductType.MidRangePhone => "Mid-range phone",
+        ProductType.Laptop => "Laptop",
+        _ => "Unknown",
+    };
+
+    private sealed record PricingLine(string Label, int Quantity, Money UnitPrice, Money LineTotal);
+    private sealed record PricingMatrixRow(
+        string ProductLabel,
+        Money IndividualPrice,
+        Money SmallBusinessPrice,
+        Money LargeBusinessPrice);
+
+    private enum CustomerType
+    {
+        Individual,
+        Business,
+    }
+
+    private IReadOnlyList<PricingMatrixRow> BuildPricingMatrix()
+    {
+        var individual = new IndividualCustomer(
+            CustomerId.Create("P-IND"),
+            new PersonName("Price", "Sample"));
+
+        var smallBusiness = new BusinessCustomer(
+            CustomerId.Create("P-SM"),
+            "Small Business",
+            CompanyRegistrationNumber.Create("SM-001"),
+            Money.FromEuros(1_000_000m));
+
+        var largeBusiness = new BusinessCustomer(
+            CustomerId.Create("P-LG"),
+            "Large Business",
+            CompanyRegistrationNumber.Create("LG-001"),
+            Money.FromEuros(12_000_000m));
+
+        return new[]
+        {
+            BuildMatrixRow(ProductType.HighEndPhone, individual, smallBusiness, largeBusiness),
+            BuildMatrixRow(ProductType.MidRangePhone, individual, smallBusiness, largeBusiness),
+            BuildMatrixRow(ProductType.Laptop, individual, smallBusiness, largeBusiness),
+        };
+    }
+
+    private PricingMatrixRow BuildMatrixRow(
+        ProductType productType,
+        Customer individual,
+        Customer smallBusiness,
+        Customer largeBusiness)
+    {
+        return new PricingMatrixRow(
+            GetLabel(productType),
+            PricePolicy.GetUnitPrice(individual, productType),
+            PricePolicy.GetUnitPrice(smallBusiness, productType),
+            PricePolicy.GetUnitPrice(largeBusiness, productType));
+    }
+
+    private void SetField<T>(ref T field, T value)
+    {
+        if (EqualityComparer<T>.Default.Equals(field, value))
+        {
+            return;
+        }
+
+        field = value;
+
+        if (_isInitialized)
+        {
+            Calculate();
+        }
+    }
+}

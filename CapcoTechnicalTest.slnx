@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="CapcoTechnicalTest/CapcoTechnicalTest.csproj" />
+  <Project Path="CapcoTechnicalTest/src/CapcoTechnicalTest.Domain/CapcoTechnicalTest.Domain.csproj" />
+  <Project Path="CapcoTechnicalTest/src/CapcoTechnicalTest.Application/CapcoTechnicalTest.Application.csproj" />
+  <Project Path="CapcoTechnicalTest/tests/CapcoTechnicalTest.Tests/CapcoTechnicalTest.Tests.csproj" />
+</Solution>
