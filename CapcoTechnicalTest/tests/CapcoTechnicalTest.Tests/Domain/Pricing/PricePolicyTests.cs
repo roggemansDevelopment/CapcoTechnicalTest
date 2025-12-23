@@ -66,14 +66,17 @@ public class PricePolicyTests
         Assert.Equal(Money.FromEuros(expected), price);
     }
 
-    [Fact]
-    public void GetUnitPrice_UsesSmallBusinessPricingAtThreshold()
+    [Theory]
+    [InlineData(ProductType.HighEndPhone, 1150)]
+    [InlineData(ProductType.MidRangePhone, 600)]
+    [InlineData(ProductType.Laptop, 1000)]
+    public void GetUnitPrice_UsesSmallBusinessPricingAtThreshold(ProductType productType, decimal expected)
     {
         var policy = new PricePolicy();
         var customer = TestCustomers.CreateSmallBusiness(10_000_000m);
 
-        var price = policy.GetUnitPrice(customer, ProductType.HighEndPhone);
+        var price = policy.GetUnitPrice(customer, productType);
 
-        Assert.Equal(Money.FromEuros(1150m), price);
+        Assert.Equal(Money.FromEuros(expected), price);
     }
 }

@@ -89,4 +89,16 @@ public class CartTotalCalculatorTests
 
         Assert.Equal(Money.FromEuros(4500m), total);
     }
+
+    [Fact]
+    public void CalculateTotal_UsesSmallBusinessPricingAtRevenueThreshold()
+    {
+        var calculator = new CartTotalCalculator(new PricePolicy());
+        var customer = TestCustomers.CreateSmallBusiness(10_000_000m);
+        var cart = TestCarts.MixedCart();
+
+        var total = calculator.CalculateTotal(customer, cart);
+
+        Assert.Equal(Money.FromEuros(5900m), total);
+    }
 }
